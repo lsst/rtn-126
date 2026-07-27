@@ -9,3 +9,6 @@
 *.dvi
 *.pdf
 authors.tex
+
+# Local copy-editing collaboration log (kept local for now, not committed)
+claude.log

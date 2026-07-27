@@ -12,6 +12,153 @@
 
 \subsection{PSF vs CCD height chip}
 
+\begin{figure*}
+        \centering
+        \includegraphics[scale=0.27]{dT_all}
+        \includegraphics[scale=0.27]{heightMap_all}
+        \caption{\small TO DO}
+        \label{fig:dT_vs_height}
+\end{figure*}
+
+Before turning to a detailed characterization of how well the PSF model
+reproduces the PSF, we first present a basic analysis of the PSF itself that
+motivates most of the technical choices made for DP2, in particular the order
+of the per-chip spatial interpolation. While the Rubin Observatory was still in
+commissioning, one of the first things to stand out was that the spatial
+variation of the PSF appeared to be optically dominated, and that the ``blob''
+pattern seen in DP1 with the Commissioning Camera was still present in the ITL
+chips of LSSTCam, but absent in the E2V chips. This blob was the justification
+for using a fourth-order spatial interpolation in DP1, and therefore in DP2.
+This raises the question of why fourth order specifically, and what its physical
+justification is. To answer it, we need to zoom out. In the left panel of
+Figure~\ref{fig:dT_vs_height}, we average $T$ across all single visits of DP2 in
+superpixels of $X\times X$; on each visit, and for a given CCD, we first remove
+that CCD's average $T$ (a simple way to remove the atmospheric seeing and focus
+on the optics). The right panel of Figure~\ref{fig:dT_vs_height} shows the height
+variation of LSSTCam measured at SLAC \REF, with the average height of
+each CCD removed. There is a clear correlation between the average PSF size and
+the height map. On the ITL chips in particular, the height map shows a circular,
+bent pattern (right panel), and this pattern is imprinted onto the PSF shape.
+Such structure cannot be captured by a simple second-order polynomial
+interpolation, which justifies moving to a higher order, as described in the DP1
+paper. In short, the observed pattern reveals local focus variations across the
+focal plane, caused by height variations of the CCD chips themselves.
+
+\begin{figure*}
+        \centering
+        \includegraphics[scale=0.27]{z4_FoV_11_i}
+        \includegraphics[scale=0.27]{z4_FoV_15_i}
+        \caption{\small TO DO}
+        \label{fig:z4_slices}
+\end{figure*}
+
+
+It is nonetheless surprising, and was not expected, to find the height map of
+LSSTCam imprinted onto the shapes of stars (and galaxies). To understand the
+physical origin of this effect, we need to look at the Active Optics System
+(AOS) itself, which was still being commissioned throughout the DP2 period; a
+full description can be found in \REF. The idea is to cross-correlate the
+AOS parameters with the PSF and to look for a setting that minimizes the
+correlation between the PSF second moments and the height map; such a minimum
+should indicate that the camera is at least in focus. For this purpose we
+collect the Zernike coefficients measured from the four corner wavefront
+sensors, and we focus on the median value of $z_4$, which we use as a proxy for
+the focus state of the camera. In Figure~\ref{fig:z4_slices} we reproduce the
+left panel of Figure~\ref{fig:dT_vs_height}, but now for a single filter and within
+a narrow slice of $z_4$: visits sharing a common $z_4$ should have a similar
+defocus, which lets us average over different atmospheric seeing conditions. The
+left panel shows the average $T$ in the $i$ band for $z_4 = 0 \pm 0.05~\mu$m ---
+the mean and the value targeted by the AOS system --- and it correlates with the
+height map (left panel of Figure~\ref{fig:dT_vs_height}). The right panel shows the
+average $T$ in the $i$ band for $z_4 = -0.2 \pm 0.05~\mu$m; here the correlation
+with the height map vanishes, indicating that this is close to the optimal focus
+value. In short, the height map is imprinted onto object shapes in the DP2
+dataset because the AOS target was slightly out of focus. This was corrected in
+mid-December 2025.
+
+\begin{figure}
+        \centering
+        \includegraphics[scale=0.27]{rho_vs_z4_per_filter}
+        \caption{\small TO DO}
+        \label{fig:z4_sweep}
+\end{figure}
+
+
+A natural follow-up question is whether the optimal target is the same in all
+filters. To address this, we perform a statistical $z_4$ sweep: for a range of
+$z_4$ values we compute the correlation coefficient between the PSF size and the
+height map in each of the $u$, $g$, $r$, $i$, $z$, and $y$ bands. The results are
+shown in Figure~\ref{fig:z4_sweep}. While $u$, $g$, $r$, $i$, and $z$ share the
+same optimal focus point, the $y$ band appears to have a different optimum. This
+is an empirical observation for which we do not yet have a definitive
+explanation. The physical expectation is that $y$-band photons convert deeper in
+the silicon, placing the focus at a different location relative to the mean
+surface of the focal plane.
+
+\begin{figure}
+        \centering
+        \includegraphics[scale=0.27]{focus_gradient_visit_2025042700505}
+        \includegraphics[scale=0.27]{focus_gradient_visit_2026010100230}
+        \caption{\small TO DO}
+        \label{fig:gradient_examples}
+\end{figure}
+
+Two further questions arise from this analysis: does each wavefront sensor
+require a different target offset, and can the approach be generalized to other
+Zernike coefficients to reach a better optical state and improved image quality?
+We first attempt to quantify the former. Since the start of commissioning, and
+in particular since LSSTCam first went on sky, it has been clear that visible
+optical gradients can appear across the focal plane; in extreme cases, stars
+look like mini-donuts on one side of the focal plane and round on the other. We
+quantify this using a cross-analysis with the height map, based on two
+quantities. The first is the gradient of $z_4$ across the focal plane,
+$\nabla z_4$: from the four wavefront sensors we compute the gradient of $z_4$
+and record its amplitude $|\nabla z_4|$ and direction
+$(\nabla_x z_4, \nabla_y z_4)$. The second is the gradient of $\rho$ across the
+focal plane, $\nabla \rho$, where $\rho$ is the correlation coefficient between
+star size and the focal-plane height map. We measure one value of $\rho$ per
+science CCD, from which we compute the gradient $\nabla \rho$ and record its
+amplitude $|\nabla \rho|$ and direction $(\nabla_x \rho, \nabla_y \rho)$. Our
+hypothesis is that if $\nabla z_4$ and $\nabla \rho$ point in the same direction,
+the focal plane is tilted and introduces an optical (focus) gradient across the
+image; if they point in different directions, the focal plane is not tilted. As
+an example, Figure~\ref{fig:gradient_examples} shows a visit from early
+commissioning (visit 2025042700505) with a large optical gradient, where
+$\nabla z_4$ and $\nabla \rho$ point in the same direction, and a more recent
+visit (visit 2026010100230), closer to focus, where the two gradients point in
+different directions.
+
+\begin{figure}
+        \centering
+        \includegraphics[scale=0.27]{optical_gradient_0_z4_norm_time_series}
+        \includegraphics[scale=0.27]{optical_gradient_1_rho_norm_time_series}
+        \includegraphics[scale=0.27]{optical_gradient_2_scalar_product_time_series}
+        \caption{\small TO DO}
+        \label{fig:gradient_timeseries}
+\end{figure}
+
+Figure~\ref{fig:gradient_timeseries} shows the time series of these amplitudes.
+The amplitude $|\nabla z_4|$ clearly decreases with time, reflecting the ongoing
+improvements on the AOS side. In contrast, $|\nabla \rho|$ remains roughly flat,
+with a slight increase after mid-December. This is expected: each CCD has its own
+optimal focus point, and the mid-December correction brought most of the central
+CCDs into focus while the outer CCDs remained out of focus, which increases
+$|\nabla \rho|$. The scalar product $\nabla z_4 \cdot \nabla \rho$ measures
+whether the two gradients are aligned. From the beginning of commissioning the
+two gradients point, on average, in the same direction. Their alignment weakens
+with time, as desired, but it does not vanish: the gradients remain partially
+colinear throughout the period, which indicates that the focal plane still has a
+residual focus gradient, i.e.\ is slightly tilted. A later analysis of the best
+image-quality (IQ) visits confirmed that each wavefront sensor has a different
+optimal value; these average to the value shown in Figure~\ref{fig:z4_sweep} and
+were pushed to the AOS targets in mid-2026, which significantly improved the IQ
+and enabled the start of the LSST survey. For the other Zernike coefficients,
+cross-correlation with the height map shows no evidence of a different optimal
+target, as expected: the other optical aberrations are not expected to correlate
+with height variations. However, the best-IQ analysis mentioned above does
+indicate improved targets for the other Zernike coefficients, which also helped
+improve the IQ and start the LSST survey.
+
 \subsection{Second moments in FoV}
 
 \subsection{PSF vs Flux (say a little bit of BF effect)}
