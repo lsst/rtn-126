@@ -28,13 +28,13 @@ commissioning, one of the first things to stand out was that the spatial
 variation of the PSF appeared to be optically dominated, and that the ``blob''
 pattern seen in DP1 with the Commissioning Camera was still present in the ITL
 chips of LSSTCam, but absent in the E2V chips. This blob was the justification
-for using a fourth-order spatial interpolation in DP1, and therefore in DP2.
+for using a fourth-order spatial interpolation in DP1 (\REF), and therefore in DP2.
 This raises the question of why fourth order specifically, and what its physical
-justification is. To answer it, we need to zoom out. In the left panel of
-Figure~\ref{fig:dT_vs_height}, we average $T$ across all single visits of DP2 in
-superpixels of $X\times X$; on each visit, and for a given CCD, we first remove
-that CCD's average $T$ (a simple way to remove the atmospheric seeing and focus
-on the optics). The right panel of Figure~\ref{fig:dT_vs_height} shows the height
+justification is. To answer it, we need to zoom out (Originally descriped in technoe \REF). 
+In the left panel of Figure~\ref{fig:dT_vs_height}, we average $T$ across all single 
+visits of DP2 in superpixels of $X\times X$; on each visit, and for a given CCD, 
+we first remove that CCD's average $T$ (a simple way to remove the atmospheric seeing 
+and focus on the optics). The right panel of Figure~\ref{fig:dT_vs_height} shows the height
 variation of LSSTCam measured at SLAC \REF, with the average height of
 each CCD removed. There is a clear correlation between the average PSF size and
 the height map. On the ITL chips in particular, the height map shows a circular,
@@ -46,8 +46,8 @@ focal plane, caused by height variations of the CCD chips themselves.
 
 \begin{figure*}
         \centering
-        \includegraphics[scale=0.27]{z4_FoV_11_i}
-        \includegraphics[scale=0.27]{z4_FoV_15_i}
+        \includegraphics[scale=0.1]{z4_FoV_11_i}
+        \includegraphics[scale=0.1]{z4_FoV_15_i}
         \caption{\small TO DO}
         \label{fig:z4_slices}
 \end{figure*}
@@ -78,7 +78,7 @@ mid-December 2025.
 
 \begin{figure}
         \centering
-        \includegraphics[scale=0.27]{rho_vs_z4_per_filter}
+        \includegraphics[scale=0.2]{rho_vs_z4_per_filter}
         \caption{\small TO DO}
         \label{fig:z4_sweep}
 \end{figure}
@@ -97,8 +97,8 @@ surface of the focal plane.
 
 \begin{figure}
         \centering
-        \includegraphics[scale=0.27]{focus_gradient_visit_2025042700505}
-        \includegraphics[scale=0.27]{focus_gradient_visit_2026010100230}
+        \includegraphics[scale=0.1]{focus_gradient_visit_2025042700505}
+        \includegraphics[scale=0.1]{focus_gradient_visit_2026010100230}
         \caption{\small TO DO}
         \label{fig:gradient_examples}
 \end{figure}
@@ -130,9 +130,9 @@ different directions.
 
 \begin{figure}
         \centering
-        \includegraphics[scale=0.27]{optical_gradient_0_z4_norm_time_series}
-        \includegraphics[scale=0.27]{optical_gradient_1_rho_norm_time_series}
-        \includegraphics[scale=0.27]{optical_gradient_2_scalar_product_time_series}
+        \includegraphics[scale=0.2]{optical_gradient_0_z4_norm_time_series}
+        \includegraphics[scale=0.2]{optical_gradient_1_rho_norm_time_series}
+        \includegraphics[scale=0.2]{optical_gradient_2_scalar_product_time_series}
         \caption{\small TO DO}
         \label{fig:gradient_timeseries}
 \end{figure}
