@@ -161,11 +161,93 @@ improve the IQ and start the LSST survey.
 
 \subsection{Second moments in FoV}
 
+\begin{figure*}
+        \centering
+        \includegraphics[scale=0.1]{secondMoment_3panel_u_150__psfmax0_snr0_noCrowded_b30}
+        \includegraphics[scale=0.1]{secondMoment_3panel_g_150__psfmax0_snr0_noCrowded_b30}
+        \includegraphics[scale=0.1]{secondMoment_3panel_r_150__psfmax0_snr0_noCrowded_b30}
+        \includegraphics[scale=0.1]{secondMoment_3panel_i_150__psfmax0_snr0_noCrowded_b30}
+        \includegraphics[scale=0.1]{secondMoment_3panel_z_150__psfmax0_snr0_noCrowded_b30}
+        \includegraphics[scale=0.1]{secondMoment_3panel_y_150__psfmax0_snr0_noCrowded_b30}
+        \caption{\small TO DO}
+        \label{fig:secondMoment_3panel_fov_all_bands}
+\end{figure*}
+
+
+\begin{figure}
+    \centering
+    \framebox[\textwidth]{\rule{0pt}{5cm} Placeholder for adding a CCD image to see the ring in the background.}
+    \caption{\small TO DO}
+    \label{fig:image_ring_ccd}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \framebox[\textwidth]{\rule{0pt}{5cm} Placeholder for a CCD image showing the annealing/coating pattern in the background of the E2V sensors.}
+    \caption{\small TO DO}
+    \label{fig:image_annealing}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \framebox[\textwidth]{\rule{0pt}{5cm} Placeholder for a CCD image showing the fringing pattern in the background in the $z$ and $y$ bands.}
+    \caption{\small TO DO}
+    \label{fig:image_fringing}
+\end{figure}
+
+A classical way to assess PSF performance is to average the second moments
+across the focal plane over many visits and to look for any systematic,
+spatially correlated structure that remains. Figure~\ref{fig:secondMoment_3panel_fov_all_bands}
+shows the average of $dT/T$, $de_1$, and $de_2$ in focal-plane coordinates, in
+superpixels of $150\times150$ pixels, for each band. Visits with a high stellar
+density are excluded from the computation of the average PSF second-moment
+residuals, in order to avoid the background-subtraction problems discussed in
+Section~\ref{sec:psf_sky_coord}. Specifically, all visits within $10^\circ$ of
+the LMC, within $5^\circ$ of the SMC, or at Galactic latitude $|b| < 20^\circ$
+are excluded from Figure~\ref{fig:secondMoment_3panel_fov_all_bands}. Each band
+exhibits different features, which we comment on below.
+
+Across all bands, there is an annulus pattern at the edge of the focal plane.
+This annulus can be traced back to a background-subtraction problem: it is
+visible both in the raw images, before any instrument signature removal (ISR),
+and after ISR, before the PSF fitting (see Figure~\ref{fig:image_ring_ccd}). It
+then propagates into the PSF second-moment residuals because the background both
+biases the second-moment measurements at low signal-to-noise ratio and biases
+the PSF model itself: by construction, the spatially varying background is
+absorbed into the PSF model.
+
+In the $u$ band, three distinct patterns stand out. The first is a rectangular
+pattern that matches the CCD amplifier layout; this is also a background
+problem. In early DRP processing of LSSTCam, this amplifier pattern was present
+in the other bands as well, until a dedicated correction at the ISR level was
+implemented (see \REF), which removed it from all other bands; it remains only
+in the $u$ band, which is known to be more challenging. The second is a stronger
+pattern on the ITL chips, similar to that shown in Figure~16 of the DP1 paper
+(\REF). In the $u$ band, the polynomial interpolation is kept at second order,
+because the stellar density is not sufficient to constrain a fourth-order
+interpolation. The third is an annealing pattern, present only in the E2V
+sensors, due to the coating of the CCDs (ADD MORE DETAIL LATER AND \REF). This
+is also a background problem, visible in the images before they enter the PSF
+fitting (see Figure~\ref{fig:image_annealing}).
+
+In the $g$ band, the only band-specific pattern that stands out is the same
+annealing pattern as in the $u$ band (see Figure~\ref{fig:image_annealing}). In
+the $r$ and $i$ bands, nothing specific stands out beyond some ITL-chip
+structure, which simply reflects how complex the chip bending is. In the $z$ and
+$y$ bands, other patterns begin to appear. First, some fringing, which is also
+visible in the image background before it enters the PSF model --- again a
+background problem (see Figure~\ref{fig:image_fringing}). Second, more structure
+becomes visible, especially on the ITL chips, such as the mid-line break (\REF).
+
+Overall, all the remaining features are related, in one way or another, to
+background subtraction. Paths forward for improving it are discussed in the
+Discussion (Section~\ref{sec:discussion}).
+
 \subsection{PSF vs Flux (say a little bit of BF effect)}
 
 \subsection{Chromaticity of the PSF}
 
-\subsection{PSF in sky coord}
+\subsection{PSF in sky coord}\label{sec:psf_sky_coord}
 
 \subsection{Rho stat at Single visit}
 
@@ -176,6 +258,11 @@ improve the IQ and start the LSST survey.
 \subsection{PSF in sky coord}
 
 \subsection{Rho stat at deep coadd level}
+
+\section{Discussion}\label{sec:discussion}
+
+Need to talk about how to handle background in the future. \\
+Need to talk how to handle height map in the future.
 
 
 \section{Conclusion}
