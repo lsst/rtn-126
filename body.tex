@@ -182,35 +182,37 @@ improve the IQ and start the LSST survey.
 
 \begin{figure}
     \centering
-    \framebox[\textwidth]{\rule{0pt}{5cm} Placeholder for adding a CCD image to see the ring in the background.}
+    \includegraphics[scale=0.39]{i_band_2026010600053_158}
     \caption{\small TO DO}
     \label{fig:image_ring_ccd}
 \end{figure}
 
 \begin{figure}
     \centering
-    \framebox[\textwidth]{\rule{0pt}{5cm} Placeholder for a CCD image showing the annealing/coating pattern in the background of the E2V sensors.}
+    \includegraphics[scale=0.39]{g_band_2026010600045_103}
     \caption{\small TO DO}
     \label{fig:image_annealing}
 \end{figure}
 
 \begin{figure}
     \centering
-    \framebox[\textwidth]{\rule{0pt}{5cm} Placeholder for a CCD image showing the fringing pattern in the background in the $z$ and $y$ bands.}
+    \includegraphics[scale=0.39]{y_band_2026010600097_45}
     \caption{\small TO DO}
     \label{fig:image_fringing}
 \end{figure}
 
 A classical way to assess PSF performance is to average the second moments
 across the focal plane over many visits and to look for any systematic,
-spatially correlated structure that remains. Figure~\ref{fig:secondMoment_3panel_fov_all_bands_ugr} and Figure~\ref{fig:secondMoment_3panel_fov_all_bands_izy}
+spatially correlated structure that remains. Figure~\ref{fig:secondMoment_3panel_fov_all_bands_ugr} 
+and Figure~\ref{fig:secondMoment_3panel_fov_all_bands_izy}
 shows the average of $dT/T$, $de_1$, and $de_2$ in focal-plane coordinates, in
 superpixels of $150\times150$ pixels, for each band. Visits with a high stellar
 density are excluded from the computation of the average PSF second-moment
 residuals, in order to avoid the background-subtraction problems discussed in
 Section~\ref{sec:psf_sky_coord}. Specifically, all visits within $10^\circ$ of
 the LMC, within $5^\circ$ of the SMC, or at Galactic latitude $|b| < 20^\circ$
-are excluded from Figure~\ref{fig:secondMoment_3panel_fov_all_bands}. Each band
+are excluded from Figure~\ref{fig:secondMoment_3panel_fov_all_bands_ugr} 
+and Figure~\ref{fig:secondMoment_3panel_fov_all_bands_izy}. Each band
 exhibits different features, which we comment on below.
 
 Across all bands, there is an annulus pattern at the edge of the focal plane.
