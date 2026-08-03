@@ -260,6 +260,33 @@ Discussion (Section~\ref{sec:discussion}).
     \label{fig:BF_PSF}
 \end{figure}
 
+Another null test is to check whether the PSF depends on flux. In principle it
+should not, but CCD physics such as the Brighter-Fatter (BF) effect, or an
+improper background subtraction, can introduce a flux dependence. In particular,
+at the start of LSSTCam operations and in early processing, a brighter-thinner
+effect was clearly visible; an example is shown in Figure~\ref{fig:BF_PSF}. To
+rule out other effects and to show that this was linked to an over-correction of
+the BF effect, the following strategy was put in place. For the same raw image,
+ISR was applied with and without the BF correction, following the same strategy
+as in DP1 Coulton18 \REF. A quick source detection, a PSF estimation with
+PSFEx, and a second-moment measurement with HSM were then performed to quantify
+the impact of switching the BF correction on and off. By toggling only the BF
+correction, Figure~\ref{fig:BF_PSF} shows that the Coulton18 \REF correction
+appears to over-correct. To confirm that this was indeed a BF effect, a third
+correction was applied following the methodology of Astier23 \REF, which is
+based on an electrostatic model rather than the empirical correction of
+Coulton18 \REF; the result is also shown in Figure~\ref{fig:BF_PSF}. Because
+this correction flattens the PSF dependence on flux, we conclude that the
+brighter-thinner behavior originally observed was due to an over-correction of
+the BF effect. Since it provides a faster and better solution, it was adopted as
+the default method for DP2.
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.3]{SNR_vs_dT_T_ugrizy_noCrowded}
+    \caption{\small TO DO}
+    \label{fig:SNR_PSF}
+\end{figure}
 
 
 \subsection{Chromaticity of the PSF}
