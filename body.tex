@@ -4,6 +4,157 @@
 
 \section{Describe the PSF model used on single visit}
 
+At the single-visit level, the PSF is modeled on a per-CCD basis: each CCD image
+has its own PSF model, and no information is shared across the full focal plane.
+The modeling proceeds in two passes. In a first pass, PSFEx \REF is used as a
+fast but less accurate PSF estimator. In a second pass, Piff \REF produces the
+final single-visit PSF. The model is a \texttt{PixelGrid} profile interpolated
+across each CCD with a \texttt{BasisPolynomial} interpolant. We summarize the
+relevant formalism below, following the description in \REF.
+
+The formalism is agnostic to the coordinate system in which the PSF model is
+built. In the DES Year~3 analysis \REF, the model was built in sky
+(tangent-plane) coordinates so that detector distortions such as tree rings are
+absorbed into the world coordinate system (WCS). For DP2 we instead work
+directly in pixel coordinates $(x,y)$: the tree rings of LSSTCam are smaller,
+and their inclusion in the WCS was not yet available at the time of DP2.
+
+The \texttt{PixelGrid} model describes the PSF surface brightness $I(x,y)$ as a
+square grid of $N_{\rm pix}$ free values $p_k$, located at grid nodes
+$(x_k,y_k)$ with fixed spacing $\Delta$ and interpolated between nodes by a
+separable kernel $K$,
+
+\begin{equation}
+    I(x,y) = \sum_{k=1}^{N_{\rm pix}} p_k\,
+             K\!\left(\frac{x-x_k}{\Delta}\right)
+             K\!\left(\frac{y-y_k}{\Delta}\right),
+    \label{eq:pixelgrid}
+\end{equation}
+
+with $I$ taken to be zero outside the grid. The grid values $p_k$ are the free
+parameters of the model, collected in the vector $\mathbf{p}$, and are
+normalized so that the model has unit total flux. The kernel is a Lanczos kernel
+of order $n$,
+
+\begin{equation}
+    K(t) = L_n(t) =
+    \begin{cases}
+        1 & |t| = 0, \\[4pt]
+        \dfrac{n}{\pi^2 t^2}\,\sin(\pi t)\,\sin\!\left(\dfrac{\pi t}{n}\right)
+            & 0 < |t| < n, \\[6pt]
+        0 & |t| \geq n,
+    \end{cases}
+    \label{eq:lanczos}
+\end{equation}
+
+which has compact support, $K(t)=0$ for $|t|\geq n$, so that each position
+receives contributions from only the $2n\times 2n$ nearest nodes.
+
+Because Equation~\eqref{eq:pixelgrid} is linear in the grid values, the model
+image of a star is a linear function of $\mathbf{p}$. For a star $i$ of flux
+$f_i$ centered at $(x_i,y_i)$, the predicted counts in data pixel $\alpha$ are
+
+\begin{equation}
+    M_{i\alpha}(\mathbf{p}) = f_i \sum_{k=1}^{N_{\rm pix}} p_k\, \Phi_{i\alpha k},
+    \label{eq:model_counts}
+\end{equation}
+
+where $\Phi_{i\alpha k}$ is the response in pixel $\alpha$ to a unit value at
+node $k$ --- the single-node kernel of Equation~\eqref{eq:pixelgrid} evaluated
+at the position of pixel $\alpha$, rescaled by the ratio of the data-pixel area
+to the model-grid pixel area. Because $K$ has compact support,
+$\Phi_{i\alpha k}$ is sparse in $k$. The grid values are obtained by minimizing
+the weighted residual
+
+\begin{equation}
+    \chi_i^2(\mathbf{p}) = \sum_\alpha w_{i\alpha}
+        \left[\, d_{i\alpha} - M_{i\alpha}(\mathbf{p}) \,\right]^2,
+    \label{eq:chi2_star}
+\end{equation}
+
+where $d_{i\alpha}$ are the observed (background-subtracted) counts and
+$w_{i\alpha}$ is the inverse variance of pixel $\alpha$. Defining the weighted
+design matrix and residual vector,
+
+\begin{equation}
+    A_{i,\alpha k} = \sqrt{w_{i\alpha}}\; f_i\, \Phi_{i\alpha k},
+    \qquad
+    b_{i,\alpha} = \sqrt{w_{i\alpha}}\left[\, d_{i\alpha}
+                   - M_{i\alpha}(\mathbf{p}) \,\right],
+    \label{eq:design_star}
+\end{equation}
+
+the update to the grid values is the least-squares solution of
+$\mathbf{A}_i\,\delta\mathbf{p}_i = \mathbf{b}_i$,
+
+\begin{equation}
+    \delta\hat{\mathbf{p}}_i =
+        \left(\mathbf{A}_i^{\mathsf T}\mathbf{A}_i\right)^{-1}
+        \mathbf{A}_i^{\mathsf T}\mathbf{b}_i,
+    \qquad
+    \mathrm{Cov}(\delta\hat{\mathbf{p}}_i) =
+        \left(\mathbf{A}_i^{\mathsf T}\mathbf{A}_i\right)^{-1}.
+    \label{eq:lsq_star}
+\end{equation}
+
+The fit is iterated a few times because the flux $f_i$ and the current model
+enter the residual. Unlike the DES Year~3 analysis, which fits the stellar
+centroid, for DP2 we hold the star positions $(x_i,y_i)$ fixed at their input
+values and do not fit the centroid.
+
+The grid values vary across the CCD, so we need a smooth model $\mathbf{p}(x,y)$
+that can be evaluated at any location. With the \texttt{BasisPolynomial}
+interpolant, each grid value is expanded on a polynomial basis of the position,
+
+\begin{equation}
+    p_{k}(x,y) = \sum_{m=1}^{N_{\rm b}} Q_{km}\, \phi_m(x,y),
+    \label{eq:basispoly}
+\end{equation}
+
+where $\{\phi_m\}$ are the monomials $x^a y^b$ with total order $a+b\leq\ell$
+($\ell$ the interpolation order, so that $N_{\rm b}=(\ell+1)(\ell+2)/2$), and the
+coefficient matrix $Q$, of size $N_{\rm pix}\times N_{\rm b}$, is shared by all
+stars on the CCD.
+
+The key point --- and the main difference from a naive two-step approach --- is
+that $Q$ is solved for directly, rather than first fitting an independent grid
+vector $\hat{\mathbf{p}}_i$ for each star and then fitting a polynomial to those
+vectors; this is far more robust when individual stars give noisy or degenerate
+fits. Each star enters only through the two accumulated quantities of the
+quadratic (Gauss--Newton) form of its $\chi_i^2$,
+
+\begin{equation}
+    \boldsymbol{\alpha}_i = \mathbf{A}_i^{\mathsf T}\mathbf{A}_i,
+    \qquad
+    \boldsymbol{\beta}_i = \mathbf{A}_i^{\mathsf T}\mathbf{b}_i,
+    \label{eq:alpha_beta}
+\end{equation}
+
+that is, the per-star Hessian and gradient with respect to $\mathbf{p}$. Writing
+$\mathbf{K}_i = \left(\phi_1(x_i,y_i),\dots,\phi_{N_{\rm b}}(x_i,y_i)\right)$ for
+the basis evaluated at star $i$, the interpolation relation
+$\delta p_{i,a} = \sum_m \delta Q_{am}\, K_{i,m}$ turns the sum of the per-star
+forms into a single linear system for the coefficients,
+
+\begin{equation}
+    \sum_{b,n}\left[\, \sum_i \alpha_{i,ab}\, K_{i,m} K_{i,n} \,\right]
+        \delta Q_{bn}
+    = \sum_i \beta_{i,a}\, K_{i,m},
+    \label{eq:interp_normal}
+\end{equation}
+
+or, in compact form,
+$\left(\sum_i \boldsymbol{\alpha}_i \otimes \mathbf{K}_i\mathbf{K}_i^{\mathsf T}\right)
+\mathrm{vec}(\delta Q) = \sum_i \mathrm{vec}\!\left(\boldsymbol{\beta}_i
+\mathbf{K}_i^{\mathsf T}\right)$. This system has dimension
+$N_{\rm pix}\,N_{\rm b}$, and building its left-hand side (accumulated over all
+stars) and factorizing it is one of the most expensive steps of the PSF
+measurement --- and was one of the slowest stages of the DM pipeline. For DP2 it
+is performed by a dedicated C++ (Eigen) solver, which is substantially faster
+than the original Python/\texttt{scipy} implementation. A color term can also be
+added to the basis $\{\phi_m\}$ to capture the chromatic dependence of the PSF
+(see Section~\ref{sec:chromaticity}).
+
 \section{Describe how PSF are made for coadded images}
 
 \section{Second moments definition}
@@ -288,8 +439,15 @@ the default method for DP2.
     \label{fig:SNR_PSF}
 \end{figure}
 
+Once the BF effect is correctly handled, there is no obvious flux dependence in
+the PSF residuals. In Figure~\ref{fig:SNR_PSF} we show the PSF second-moment
+residuals as a function of the signal-to-noise ratio (SNR) across all bands,
+after excluding low-Galactic-latitude fields (keeping only $|b| > 20^\circ$). No
+residual trend is seen, indicating no problem related to CCD physics and no
+background problem in the high-latitude fields.
 
-\subsection{Chromaticity of the PSF}
+
+\subsection{Chromaticity of the PSF}\label{sec:chromaticity}
 
 \subsection{PSF in sky coord}\label{sec:psf_sky_coord}
 
