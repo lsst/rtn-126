@@ -3,9 +3,9 @@
 .. image:: https://github.com/lsst/rtn-126/workflows/CI/badge.svg
    :target: https://github.com/lsst/rtn-126/actions/
 
-#########################################################################################################
-Point Spread Function Characterization of the Vera C. Rubin Observatory using the Data Preview 2 dataset.
-#########################################################################################################
+##################################################################################################################
+On sky characterization of the Vera C. Rubin Observatory's Point Spread Function using the Data Preview 2 dataset.
+##################################################################################################################
 
 RTN-126
 =======

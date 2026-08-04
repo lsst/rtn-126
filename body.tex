@@ -1,8 +1,513 @@
 \section{Introduction}
 
-\textbf{Put your paper here.}
-\vskip 0.4in
+\section{The Data Preview 2 dataset}
+
+\section{Describe the PSF model used on single visit}
+
+At the single-visit level, the PSF is modeled on a per-CCD basis: each CCD image
+has its own PSF model, and no information is shared across the full focal plane.
+The modeling proceeds in two passes. In a first pass, PSFEx \REF is used as a
+fast but less accurate PSF estimator. In a second pass, Piff \REF produces the
+final single-visit PSF. The model is a \texttt{PixelGrid} profile interpolated
+across each CCD with a \texttt{BasisPolynomial} interpolant. We summarize the
+relevant formalism below, following the description in \REF.
+
+The formalism is agnostic to the coordinate system in which the PSF model is
+built. In the DES Year~3 analysis \REF, the model was built in sky
+(tangent-plane) coordinates so that detector distortions such as tree rings are
+absorbed into the world coordinate system (WCS). For DP2 we instead work
+directly in pixel coordinates $(x,y)$: the tree rings of LSSTCam are smaller,
+and their inclusion in the WCS was not yet available at the time of DP2.
+
+The \texttt{PixelGrid} model describes the PSF surface brightness $I(x,y)$ as a
+square grid of $N_{\rm pix}$ free values $p_k$, located at grid nodes
+$(x_k,y_k)$ with fixed spacing $\Delta$ and interpolated between nodes by a
+separable kernel $K$,
+
+\begin{equation}
+    I(x,y) = \sum_{k=1}^{N_{\rm pix}} p_k\,
+             K\!\left(\frac{x-x_k}{\Delta}\right)
+             K\!\left(\frac{y-y_k}{\Delta}\right),
+    \label{eq:pixelgrid}
+\end{equation}
+
+with $I$ taken to be zero outside the grid. The grid values $p_k$ are the free
+parameters of the model, collected in the vector $\mathbf{p}$, and are
+normalized so that the model has unit total flux. The kernel is a Lanczos kernel
+of order $n$,
+
+\begin{equation}
+    K(t) = L_n(t) =
+    \begin{cases}
+        1 & |t| = 0, \\[4pt]
+        \dfrac{n}{\pi^2 t^2}\,\sin(\pi t)\,\sin\!\left(\dfrac{\pi t}{n}\right)
+            & 0 < |t| < n, \\[6pt]
+        0 & |t| \geq n,
+    \end{cases}
+    \label{eq:lanczos}
+\end{equation}
+
+which has compact support, $K(t)=0$ for $|t|\geq n$, so that each position
+receives contributions from only the $2n\times 2n$ nearest nodes.
+
+Because Equation~\eqref{eq:pixelgrid} is linear in the grid values, the model
+image of a star is a linear function of $\mathbf{p}$. For a star $i$ of flux
+$f_i$ centered at $(x_i,y_i)$, the predicted counts in data pixel $\alpha$ are
+
+\begin{equation}
+    M_{i\alpha}(\mathbf{p}) = f_i \sum_{k=1}^{N_{\rm pix}} p_k\, \Phi_{i\alpha k},
+    \label{eq:model_counts}
+\end{equation}
+
+where $\Phi_{i\alpha k}$ is the response in pixel $\alpha$ to a unit value at
+node $k$ --- the single-node kernel of Equation~\eqref{eq:pixelgrid} evaluated
+at the position of pixel $\alpha$, rescaled by the ratio of the data-pixel area
+to the model-grid pixel area. Because $K$ has compact support,
+$\Phi_{i\alpha k}$ is sparse in $k$. The grid values are obtained by minimizing
+the weighted residual
+
+\begin{equation}
+    \chi_i^2(\mathbf{p}) = \sum_\alpha w_{i\alpha}
+        \left[\, d_{i\alpha} - M_{i\alpha}(\mathbf{p}) \,\right]^2,
+    \label{eq:chi2_star}
+\end{equation}
+
+where $d_{i\alpha}$ are the observed (background-subtracted) counts and
+$w_{i\alpha}$ is the inverse variance of pixel $\alpha$. Defining the weighted
+design matrix and residual vector,
+
+\begin{equation}
+    A_{i,\alpha k} = \sqrt{w_{i\alpha}}\; f_i\, \Phi_{i\alpha k},
+    \qquad
+    b_{i,\alpha} = \sqrt{w_{i\alpha}}\left[\, d_{i\alpha}
+                   - M_{i\alpha}(\mathbf{p}) \,\right],
+    \label{eq:design_star}
+\end{equation}
+
+the update to the grid values is the least-squares solution of
+$\mathbf{A}_i\,\delta\mathbf{p}_i = \mathbf{b}_i$,
+
+\begin{equation}
+    \delta\hat{\mathbf{p}}_i =
+        \left(\mathbf{A}_i^{\mathsf T}\mathbf{A}_i\right)^{-1}
+        \mathbf{A}_i^{\mathsf T}\mathbf{b}_i,
+    \qquad
+    \mathrm{Cov}(\delta\hat{\mathbf{p}}_i) =
+        \left(\mathbf{A}_i^{\mathsf T}\mathbf{A}_i\right)^{-1}.
+    \label{eq:lsq_star}
+\end{equation}
+
+The fit is iterated a few times because the flux $f_i$ and the current model
+enter the residual. Unlike the DES Year~3 analysis, which fits the stellar
+centroid, for DP2 we hold the star positions $(x_i,y_i)$ fixed at their input
+values and do not fit the centroid.
+
+The grid values vary across the CCD, so we need a smooth model $\mathbf{p}(x,y)$
+that can be evaluated at any location. With the \texttt{BasisPolynomial}
+interpolant, each grid value is expanded on a polynomial basis of the position,
+
+\begin{equation}
+    p_{k}(x,y) = \sum_{m=1}^{N_{\rm b}} Q_{km}\, \phi_m(x,y),
+    \label{eq:basispoly}
+\end{equation}
+
+where $\{\phi_m\}$ are the monomials $x^a y^b$ with total order $a+b\leq\ell$
+($\ell$ the interpolation order, so that $N_{\rm b}=(\ell+1)(\ell+2)/2$), and the
+coefficient matrix $Q$, of size $N_{\rm pix}\times N_{\rm b}$, is shared by all
+stars on the CCD.
+
+The key point --- and the main difference from a naive two-step approach --- is
+that $Q$ is solved for directly, rather than first fitting an independent grid
+vector $\hat{\mathbf{p}}_i$ for each star and then fitting a polynomial to those
+vectors; this is far more robust when individual stars give noisy or degenerate
+fits. Each star enters only through the two accumulated quantities of the
+quadratic (Gauss--Newton) form of its $\chi_i^2$,
+
+\begin{equation}
+    \boldsymbol{\alpha}_i = \mathbf{A}_i^{\mathsf T}\mathbf{A}_i,
+    \qquad
+    \boldsymbol{\beta}_i = \mathbf{A}_i^{\mathsf T}\mathbf{b}_i,
+    \label{eq:alpha_beta}
+\end{equation}
+
+that is, the per-star Hessian and gradient with respect to $\mathbf{p}$. Writing
+$\mathbf{K}_i = \left(\phi_1(x_i,y_i),\dots,\phi_{N_{\rm b}}(x_i,y_i)\right)$ for
+the basis evaluated at star $i$, the interpolation relation
+$\delta p_{i,a} = \sum_m \delta Q_{am}\, K_{i,m}$ turns the sum of the per-star
+forms into a single linear system for the coefficients,
+
+\begin{equation}
+    \sum_{b,n}\left[\, \sum_i \alpha_{i,ab}\, K_{i,m} K_{i,n} \,\right]
+        \delta Q_{bn}
+    = \sum_i \beta_{i,a}\, K_{i,m},
+    \label{eq:interp_normal}
+\end{equation}
+
+or, in compact form,
+$\left(\sum_i \boldsymbol{\alpha}_i \otimes \mathbf{K}_i\mathbf{K}_i^{\mathsf T}\right)
+\mathrm{vec}(\delta Q) = \sum_i \mathrm{vec}\!\left(\boldsymbol{\beta}_i
+\mathbf{K}_i^{\mathsf T}\right)$. This system has dimension
+$N_{\rm pix}\,N_{\rm b}$, and building its left-hand side (accumulated over all
+stars) and factorizing it is one of the most expensive steps of the PSF
+measurement --- and was one of the slowest stages of the DM pipeline. For DP2 it
+is performed by a dedicated C++ (Eigen) solver, which is substantially faster
+than the original Python/\texttt{scipy} implementation. A color term can also be
+added to the basis $\{\phi_m\}$ to capture the chromatic dependence of the PSF
+(see Section~\ref{sec:chromaticity}).
+
+\section{Describe how PSF are made for coadded images}
+
+In DP2 the coadded images are cell-based, built on the \texttt{lsst\_cells\_v2}
+sky map \REF. The sky is divided into small cells, and within each cell the
+coadd is a weighted average of the overlapping single-visit images (``warps''),
+each contributing detector receiving a weight equal to the inverse of its mean
+variance as reported in the visit-summary table. The coadd PSF is constructed
+with the same weights and the same set of contributing detectors, and is the
+focus of this section.
+
+Within a cell, the PSF is approximated as spatially constant: it is represented
+by a single postage-stamp image, evaluated at the center of the cell. This stamp
+is built from the contributing single-visit PSFs in three steps.
+
+First, for each detector that contributes to the cell, the cell center is mapped
+from sky coordinates to the pixel coordinates of that visit through the detector
+world coordinate system (WCS), and the single-visit PSF model is evaluated at
+that point. This yields a postage stamp of the PSF in the native (undistorted)
+pixel frame of the visit.
+
+Second, each stamp is resampled onto the coadd pixel grid with the same Lanczos
+kernel used to warp the science images, mapping it from the visit WCS to the
+coadd WCS. The stamp is zero-padded beforehand so that the warp does not lose
+flux at its edges, and the output is a fixed $35\times35$ pixel stamp --- a size
+chosen so that at least $99.5\%$ of the PSF flux is retained. The pipeline
+verifies this by requiring each warped stamp to integrate to unity to within
+$0.5\%$.
+
+Third, the warped stamps are combined into a weighted mean, using exactly the
+same per-detector weights as the science coadd. The result is the cell PSF: a
+single image representing the effective PSF at the center of the cell.
+
+Because the PSF is stored per cell rather than as a continuous function of
+position, two caveats follow. Pixels that are affected by an artifact in any
+contributing visit are flagged with \texttt{INEXACT\_PSF}, indicating that their
+true PSF may differ from the cell PSF. In addition, summary information --- which
+visits contribute to the cell, the fraction of unmasked pixels, and PSF shape
+statistics --- is stored as metadata; the PSF shape used for these statistics is
+measured at the cell center, or, when a detector covers less than half of the
+cell, at the center of its overlap region.
+
+This per-cell, spatially constant PSF is the main difference from the coadd PSF
+in DP1, where the coadd PSF was represented as a position-dependent model across
+the patch.
+
+\section{Second moments definition}
+
+\section{Single visit PSF characterization}
+
+\subsection{PSF vs CCD height chip}
+
+\begin{figure*}
+        \centering
+        \includegraphics[scale=0.27]{dT_all}
+        \includegraphics[scale=0.27]{heightMap_all}
+        \caption{\small TO DO}
+        \label{fig:dT_vs_height}
+\end{figure*}
+
+Before turning to a detailed characterization of how well the PSF model
+reproduces the PSF, we first present a basic analysis of the PSF itself that
+motivates most of the technical choices made for DP2, in particular the order
+of the per-chip spatial interpolation. While the Rubin Observatory was still in
+commissioning, one of the first things to stand out was that the spatial
+variation of the PSF appeared to be optically dominated, and that the ``blob''
+pattern seen in DP1 with the Commissioning Camera was still present in the ITL
+chips of LSSTCam, but absent in the E2V chips. This blob was the justification
+for using a fourth-order spatial interpolation in DP1 (\REF), and therefore in DP2.
+This raises the question of why fourth order specifically, and what its physical
+justification is. To answer it, we need to zoom out (Originally descriped in technoe \REF). 
+In the left panel of Figure~\ref{fig:dT_vs_height}, we average $T$ across all single 
+visits of DP2 in superpixels of $X\times X$; on each visit, and for a given CCD, 
+we first remove that CCD's average $T$ (a simple way to remove the atmospheric seeing 
+and focus on the optics). The right panel of Figure~\ref{fig:dT_vs_height} shows the height
+variation of LSSTCam measured at SLAC \REF, with the average height of
+each CCD removed. There is a clear correlation between the average PSF size and
+the height map. On the ITL chips in particular, the height map shows a circular,
+bent pattern (right panel), and this pattern is imprinted onto the PSF shape.
+Such structure cannot be captured by a simple second-order polynomial
+interpolation, which justifies moving to a higher order, as described in the DP1
+paper. In short, the observed pattern reveals local focus variations across the
+focal plane, caused by height variations of the CCD chips themselves.
+
+\begin{figure*}
+        \centering
+        \includegraphics[scale=0.1]{z4_FoV_11_i}
+        \includegraphics[scale=0.1]{z4_FoV_15_i}
+        \caption{\small TO DO}
+        \label{fig:z4_slices}
+\end{figure*}
+
+
+It is nonetheless surprising, and was not expected, to find the height map of
+LSSTCam imprinted onto the shapes of stars (and galaxies). To understand the
+physical origin of this effect, we need to look at the Active Optics System
+(AOS) itself, which was still being commissioned throughout the DP2 period; a
+full description can be found in \REF. The idea is to cross-correlate the
+AOS parameters with the PSF and to look for a setting that minimizes the
+correlation between the PSF second moments and the height map; such a minimum
+should indicate that the camera is at least in focus. For this purpose we
+collect the Zernike coefficients measured from the four corner wavefront
+sensors, and we focus on the median value of $z_4$, which we use as a proxy for
+the focus state of the camera. In Figure~\ref{fig:z4_slices} we reproduce the
+left panel of Figure~\ref{fig:dT_vs_height}, but now for a single filter and within
+a narrow slice of $z_4$: visits sharing a common $z_4$ should have a similar
+defocus, which lets us average over different atmospheric seeing conditions. The
+left panel shows the average $T$ in the $i$ band for $z_4 = 0 \pm 0.05~\mu$m ---
+the mean and the value targeted by the AOS system --- and it correlates with the
+height map (left panel of Figure~\ref{fig:dT_vs_height}). The right panel shows the
+average $T$ in the $i$ band for $z_4 = -0.2 \pm 0.05~\mu$m; here the correlation
+with the height map vanishes, indicating that this is close to the optimal focus
+value. In short, the height map is imprinted onto object shapes in the DP2
+dataset because the AOS target was slightly out of focus. This was corrected in
+mid-December 2025.
+
+\begin{figure}
+        \centering
+        \includegraphics[scale=0.2]{rho_vs_z4_per_filter}
+        \caption{\small TO DO}
+        \label{fig:z4_sweep}
+\end{figure}
+
+
+A natural follow-up question is whether the optimal target is the same in all
+filters. To address this, we perform a statistical $z_4$ sweep: for a range of
+$z_4$ values we compute the correlation coefficient between the PSF size and the
+height map in each of the $u$, $g$, $r$, $i$, $z$, and $y$ bands. The results are
+shown in Figure~\ref{fig:z4_sweep}. While $u$, $g$, $r$, $i$, and $z$ share the
+same optimal focus point, the $y$ band appears to have a different optimum. This
+is an empirical observation for which we do not yet have a definitive
+explanation. The physical expectation is that $y$-band photons convert deeper in
+the silicon, placing the focus at a different location relative to the mean
+surface of the focal plane.
+
+\begin{figure}
+        \centering
+        \includegraphics[scale=0.1]{focus_gradient_visit_2025042700505}
+        \includegraphics[scale=0.1]{focus_gradient_visit_2026010100230}
+        \caption{\small TO DO}
+        \label{fig:gradient_examples}
+\end{figure}
+
+Two further questions arise from this analysis: does each wavefront sensor
+require a different target offset, and can the approach be generalized to other
+Zernike coefficients to reach a better optical state and improved image quality?
+We first attempt to quantify the former. Since the start of commissioning, and
+in particular since LSSTCam first went on sky, it has been clear that visible
+optical gradients can appear across the focal plane; in extreme cases, stars
+look like mini-donuts on one side of the focal plane and round on the other. We
+quantify this using a cross-analysis with the height map, based on two
+quantities. The first is the gradient of $z_4$ across the focal plane,
+$\nabla z_4$: from the four wavefront sensors we compute the gradient of $z_4$
+and record its amplitude $|\nabla z_4|$ and direction
+$(\nabla_x z_4, \nabla_y z_4)$. The second is the gradient of $\rho$ across the
+focal plane, $\nabla \rho$, where $\rho$ is the correlation coefficient between
+star size and the focal-plane height map. We measure one value of $\rho$ per
+science CCD, from which we compute the gradient $\nabla \rho$ and record its
+amplitude $|\nabla \rho|$ and direction $(\nabla_x \rho, \nabla_y \rho)$. Our
+hypothesis is that if $\nabla z_4$ and $\nabla \rho$ point in the same direction,
+the focal plane is tilted and introduces an optical (focus) gradient across the
+image; if they point in different directions, the focal plane is not tilted. As
+an example, Figure~\ref{fig:gradient_examples} shows a visit from early
+commissioning (visit 2025042700505) with a large optical gradient, where
+$\nabla z_4$ and $\nabla \rho$ point in the same direction, and a more recent
+visit (visit 2026010100230), closer to focus, where the two gradients point in
+different directions.
+
+\begin{figure}
+        \centering
+        \includegraphics[scale=0.2]{optical_gradient_0_z4_norm_time_series}
+        \includegraphics[scale=0.2]{optical_gradient_1_rho_norm_time_series}
+        \includegraphics[scale=0.2]{optical_gradient_2_scalar_product_time_series}
+        \caption{\small TO DO}
+        \label{fig:gradient_timeseries}
+\end{figure}
+
+Figure~\ref{fig:gradient_timeseries} shows the time series of these amplitudes.
+The amplitude $|\nabla z_4|$ clearly decreases with time, reflecting the ongoing
+improvements on the AOS side. In contrast, $|\nabla \rho|$ remains roughly flat,
+with a slight increase after mid-December. This is expected: each CCD has its own
+optimal focus point, and the mid-December correction brought most of the central
+CCDs into focus while the outer CCDs remained out of focus, which increases
+$|\nabla \rho|$. The scalar product $\nabla z_4 \cdot \nabla \rho$ measures
+whether the two gradients are aligned. From the beginning of commissioning the
+two gradients point, on average, in the same direction. Their alignment weakens
+with time, as desired, but it does not vanish: the gradients remain partially
+colinear throughout the period, which indicates that the focal plane still has a
+residual focus gradient, i.e.\ is slightly tilted. A later analysis of the best
+image-quality (IQ) visits confirmed that each wavefront sensor has a different
+optimal value; these average to the value shown in Figure~\ref{fig:z4_sweep} and
+were pushed to the AOS targets in mid-2026, which significantly improved the IQ
+and enabled the start of the LSST survey. For the other Zernike coefficients,
+cross-correlation with the height map shows no evidence of a different optimal
+target, as expected: the other optical aberrations are not expected to correlate
+with height variations. However, the best-IQ analysis mentioned above does
+indicate improved targets for the other Zernike coefficients, which also helped
+improve the IQ and start the LSST survey.
+
+\subsection{Second moments in FoV}
+
+\begin{figure*}
+        \centering
+        \includegraphics[scale=0.2]{secondMoment_3panel_u_150__psfmax0_snr0_noCrowded_b20}
+        \includegraphics[scale=0.2]{secondMoment_3panel_g_150__psfmax0_snr0_noCrowded_b20}
+        \includegraphics[scale=0.2]{secondMoment_3panel_r_150__psfmax0_snr0_noCrowded_b20}
+        \caption{\small TO DO}
+        \label{fig:secondMoment_3panel_fov_all_bands_ugr}
+\end{figure*}
+
+
+\begin{figure*}
+        \centering
+        \includegraphics[scale=0.2]{secondMoment_3panel_i_150__psfmax0_snr0_noCrowded_b20}
+        \includegraphics[scale=0.2]{secondMoment_3panel_z_150__psfmax0_snr0_noCrowded_b20}
+        \includegraphics[scale=0.2]{secondMoment_3panel_y_150__psfmax0_snr0_noCrowded_b20}
+        \caption{\small TO DO}
+        \label{fig:secondMoment_3panel_fov_all_bands_izy}
+\end{figure*}
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.39]{i_band_2026010600053_158}
+    \caption{\small TO DO}
+    \label{fig:image_ring_ccd}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.39]{g_band_2026010600045_103}
+    \caption{\small TO DO}
+    \label{fig:image_annealing}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.39]{y_band_2026010600097_45}
+    \caption{\small TO DO}
+    \label{fig:image_fringing}
+\end{figure}
+
+A classical way to assess PSF performance is to average the second moments
+across the focal plane over many visits and to look for any systematic,
+spatially correlated structure that remains. Figure~\ref{fig:secondMoment_3panel_fov_all_bands_ugr} 
+and Figure~\ref{fig:secondMoment_3panel_fov_all_bands_izy}
+shows the average of $dT/T$, $de_1$, and $de_2$ in focal-plane coordinates, in
+superpixels of $150\times150$ pixels, for each band. Visits with a high stellar
+density are excluded from the computation of the average PSF second-moment
+residuals, in order to avoid the background-subtraction problems discussed in
+Section~\ref{sec:psf_sky_coord}. Specifically, all visits within $10^\circ$ of
+the LMC, within $5^\circ$ of the SMC, or at Galactic latitude $|b| < 20^\circ$
+are excluded from Figure~\ref{fig:secondMoment_3panel_fov_all_bands_ugr} 
+and Figure~\ref{fig:secondMoment_3panel_fov_all_bands_izy}. Each band
+exhibits different features, which we comment on below.
+
+Across all bands, there is an annulus pattern at the edge of the focal plane.
+This annulus can be traced back to a background-subtraction problem: it is
+visible both in the raw images, before any instrument signature removal (ISR),
+and after ISR, before the PSF fitting (see Figure~\ref{fig:image_ring_ccd}). It
+then propagates into the PSF second-moment residuals because the background both
+biases the second-moment measurements at low signal-to-noise ratio and biases
+the PSF model itself: by construction, the spatially varying background is
+absorbed into the PSF model.
+
+In the $u$ band, three distinct patterns stand out. The first is a rectangular
+pattern that matches the CCD amplifier layout; this is also a background
+problem. In early DRP processing of LSSTCam, this amplifier pattern was present
+in the other bands as well, until a dedicated correction at the ISR level was
+implemented (see \REF), which removed it from all other bands; it remains only
+in the $u$ band, which is known to be more challenging. The second is a stronger
+pattern on the ITL chips, similar to that shown in Figure~16 of the DP1 paper
+(\REF). In the $u$ band, the polynomial interpolation is kept at second order,
+because the stellar density is not sufficient to constrain a fourth-order
+interpolation. The third is an annealing pattern, present only in the E2V
+sensors, due to the coating of the CCDs (ADD MORE DETAIL LATER AND \REF). This
+is also a background problem, visible in the images before they enter the PSF
+fitting (see Figure~\ref{fig:image_annealing}).
+
+In the $g$ band, the only band-specific pattern that stands out is the same
+annealing pattern as in the $u$ band (see Figure~\ref{fig:image_annealing}). In
+the $r$ and $i$ bands, nothing specific stands out beyond some ITL-chip
+structure, which simply reflects how complex the chip bending is. In the $z$ and
+$y$ bands, other patterns begin to appear. First, some fringing, which is also
+visible in the image background before it enters the PSF model --- again a
+background problem (see Figure~\ref{fig:image_fringing}). Second, more structure
+becomes visible, especially on the ITL chips, such as the mid-line break (\REF).
+
+Overall, all the remaining features are related, in one way or another, to
+background subtraction. Paths forward for improving it are discussed in the
+Discussion (Section~\ref{sec:discussion}).
+
+\subsection{PSF vs Flux (say a little bit of BF effect)}
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.7]{dT_T_vs_max_flux_psf_42_Astier23Test_PSFEx_achromatic}
+    \caption{\small TO DO}
+    \label{fig:BF_PSF}
+\end{figure}
+
+Another null test is to check whether the PSF depends on flux. In principle it
+should not, but CCD physics such as the Brighter-Fatter (BF) effect, or an
+improper background subtraction, can introduce a flux dependence. In particular,
+at the start of LSSTCam operations and in early processing, a brighter-thinner
+effect was clearly visible; an example is shown in Figure~\ref{fig:BF_PSF}. To
+rule out other effects and to show that this was linked to an over-correction of
+the BF effect, the following strategy was put in place. For the same raw image,
+ISR was applied with and without the BF correction, following the same strategy
+as in DP1 Coulton18 \REF. A quick source detection, a PSF estimation with
+PSFEx, and a second-moment measurement with HSM were then performed to quantify
+the impact of switching the BF correction on and off. By toggling only the BF
+correction, Figure~\ref{fig:BF_PSF} shows that the Coulton18 \REF correction
+appears to over-correct. To confirm that this was indeed a BF effect, a third
+correction was applied following the methodology of Astier23 \REF, which is
+based on an electrostatic model rather than the empirical correction of
+Coulton18 \REF; the result is also shown in Figure~\ref{fig:BF_PSF}. Because
+this correction flattens the PSF dependence on flux, we conclude that the
+brighter-thinner behavior originally observed was due to an over-correction of
+the BF effect. Since it provides a faster and better solution, it was adopted as
+the default method for DP2.
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.3]{SNR_vs_dT_T_ugrizy_noCrowded}
+    \caption{\small TO DO}
+    \label{fig:SNR_PSF}
+\end{figure}
+
+Once the BF effect is correctly handled, there is no obvious flux dependence in
+the PSF residuals. In Figure~\ref{fig:SNR_PSF} we show the PSF second-moment
+residuals as a function of the signal-to-noise ratio (SNR) across all bands,
+after excluding low-Galactic-latitude fields (keeping only $|b| > 20^\circ$). No
+residual trend is seen, indicating no problem related to CCD physics and no
+background problem in the high-latitude fields.
+
+
+\subsection{Chromaticity of the PSF}\label{sec:chromaticity}
+
+\subsection{PSF in sky coord}\label{sec:psf_sky_coord}
+
+\subsection{Rho stat at Single visit}
 
 
 
-This is the Rubin Observatory overview paper: \citet{2019ApJ...873..111I}.
+\section{Deep coadd PSF Characterization}
+
+\subsection{PSF in sky coord}
+
+\subsection{Rho stat at deep coadd level}
+
+\section{Discussion}\label{sec:discussion}
+
+Need to talk about how to handle background in the future. \\
+Need to talk how to handle height map in the future.
+
+
+\section{Conclusion}
