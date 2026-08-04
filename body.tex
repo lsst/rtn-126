@@ -157,6 +157,49 @@ added to the basis $\{\phi_m\}$ to capture the chromatic dependence of the PSF
 
 \section{Describe how PSF are made for coadded images}
 
+In DP2 the coadded images are cell-based, built on the \texttt{lsst\_cells\_v2}
+sky map \REF. The sky is divided into small cells, and within each cell the
+coadd is a weighted average of the overlapping single-visit images (``warps''),
+each contributing detector receiving a weight equal to the inverse of its mean
+variance as reported in the visit-summary table. The coadd PSF is constructed
+with the same weights and the same set of contributing detectors, and is the
+focus of this section.
+
+Within a cell, the PSF is approximated as spatially constant: it is represented
+by a single postage-stamp image, evaluated at the center of the cell. This stamp
+is built from the contributing single-visit PSFs in three steps.
+
+First, for each detector that contributes to the cell, the cell center is mapped
+from sky coordinates to the pixel coordinates of that visit through the detector
+world coordinate system (WCS), and the single-visit PSF model is evaluated at
+that point. This yields a postage stamp of the PSF in the native (undistorted)
+pixel frame of the visit.
+
+Second, each stamp is resampled onto the coadd pixel grid with the same Lanczos
+kernel used to warp the science images, mapping it from the visit WCS to the
+coadd WCS. The stamp is zero-padded beforehand so that the warp does not lose
+flux at its edges, and the output is a fixed $35\times35$ pixel stamp --- a size
+chosen so that at least $99.5\%$ of the PSF flux is retained. The pipeline
+verifies this by requiring each warped stamp to integrate to unity to within
+$0.5\%$.
+
+Third, the warped stamps are combined into a weighted mean, using exactly the
+same per-detector weights as the science coadd. The result is the cell PSF: a
+single image representing the effective PSF at the center of the cell.
+
+Because the PSF is stored per cell rather than as a continuous function of
+position, two caveats follow. Pixels that are affected by an artifact in any
+contributing visit are flagged with \texttt{INEXACT\_PSF}, indicating that their
+true PSF may differ from the cell PSF. In addition, summary information --- which
+visits contribute to the cell, the fraction of unmasked pixels, and PSF shape
+statistics --- is stored as metadata; the PSF shape used for these statistics is
+measured at the cell center, or, when a detector covers less than half of the
+cell, at the center of its overlap region.
+
+This per-cell, spatially constant PSF is the main difference from the coadd PSF
+in DP1, where the coadd PSF was represented as a position-dependent model across
+the patch.
+
 \section{Second moments definition}
 
 \section{Single visit PSF characterization}
